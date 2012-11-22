@@ -1,0 +1,528 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" creationComplete="drawBoardGrid()" backgroundColor="#000000">
+
+	<mx:Script>
+		<![CDATA[
+			import mx.events.ResizeEvent;
+			import mx.collections.ArrayCollection;
+			import com.chess.piece.Piece;
+			import com.chess.square.BoardSquare;
+			import mx.containers.GridItem;
+			import mx.containers.GridRow;
+			import mx.containers.Grid;
+			import mx.managers.DragManager;
+			import mx.core.DragSource;
+			import mx.events.DragEvent;
+			import flash.events.MouseEvent;
+			import mx.controls.Alert;
+			
+			
+			public var turn:String = "white";
+			public var turnnumber:int = 1;
+			public var promotion:Boolean = false;
+			public var playerColor:String = "white";
+			
+			[Bindable]
+			public var comments:String = "";
+			private function drawBoardGrid():void
+			{
+				comments = (turn == playerColor ? "your turn" : turn + "'s turn");
+				gridBoard.x = imgBoard.x + 10;
+				gridBoard.y = imgBoard.y + 10;
+				var columns:Array;
+				var lines:Array;
+				if (playerColor == "black") {	// si le joueur a les pions noirs
+					columns = new Array("h","g","f","e","d","c","b","a");
+					lines = new Array("1","2","3","4","5","6","7","8");
+				}
+				else {	// si le joueur a les pions blancs ou n'est pas dans la partie
+					columns = new Array("a","b","c","d","e","f","g","h");
+					lines = new Array("8","7","6","5","4","3","2","1");
+				}
+				
+				for each (var line:String in lines) {
+
+					var tmpGridRow:GridRow = new GridRow();
+					tmpGridRow.id = line;
+					tmpGridRow.name = line;
+					gridBoard.addChild(tmpGridRow);
+
+					for each (var column:String in columns) {
+
+						var tmpBoardSquare:BoardSquare = new BoardSquare(column,line);
+						tmpBoardSquare.addEventListener(DragEvent.DRAG_ENTER,dragEnterHandler);
+						tmpBoardSquare.addEventListener(DragEvent.DRAG_DROP,dragDropHandler);
+						tmpGridRow.addChild(tmpBoardSquare); 
+
+						var tmpPiece:Piece; 
+						
+						switch(line) {
+						 case "2":
+							tmpPiece = new Piece("wpawn"+column,"pawn","w",tmpBoardSquare.id);
+							break;		 	
+						 case "7":
+							tmpPiece = new Piece("bpawn"+column,"pawn","b",tmpBoardSquare.id);
+							break;
+						 default:
+						 	switch(tmpBoardSquare.id) {
+						 		case "a1":
+									tmpPiece = new Piece("wrook"+column,"rook","w",tmpBoardSquare.id);
+						 			break;
+						 		case "b1":
+									tmpPiece = new Piece("wknight"+column,"knight","w",tmpBoardSquare.id);
+						 			break;
+						 		case "c1":
+									tmpPiece = new Piece("wbishop"+column,"bishop","w",tmpBoardSquare.id);
+						 			break;
+						 		case "d1":
+									tmpPiece = new Piece("wqueen","queen","w",tmpBoardSquare.id);
+						 			break;
+						 		case "e1":
+									tmpPiece = new Piece("wking","king","w",tmpBoardSquare.id);
+						 			break;
+						 		case "f1":
+									tmpPiece = new Piece("wbishop"+column,"bishop","w",tmpBoardSquare.id);
+						 			break;
+						 		case "g1":
+									tmpPiece = new Piece("wknight"+column,"knight","w",tmpBoardSquare.id);
+						 			break;
+						 		case "h1":
+									tmpPiece = new Piece("wrook"+column,"rook","w",tmpBoardSquare.id);
+						 			break;
+						 		case "a8":
+									tmpPiece = new Piece("brook"+column,"rook","b",tmpBoardSquare.id);
+						 			break;
+						 		case "b8":
+									tmpPiece = new Piece("bknight"+column,"knight","b",tmpBoardSquare.id);
+						 			break;
+						 		case "c8":
+									tmpPiece = new Piece("bbishop"+column,"bishop","b",tmpBoardSquare.id);
+						 			break;
+						 		case "d8":
+									tmpPiece = new Piece("bqueen","queen","b",tmpBoardSquare.id);
+						 			break;
+						 		case "e8":
+									tmpPiece = new Piece("bking","king","b",tmpBoardSquare.id);
+						 			break;
+						 		case "f8":
+									tmpPiece = new Piece("bbishop"+column,"bishop","b",tmpBoardSquare.id);
+						 			break;
+						 		case "g8":
+									tmpPiece = new Piece("bknight"+column,"knight","b",tmpBoardSquare.id);
+						 			break;
+						 		case "h8":
+									tmpPiece = new Piece("brook"+column,"rook","b",tmpBoardSquare.id);
+						 			break;
+						 		default :
+						 			break;
+						 	}
+						}
+
+						if (tmpPiece.initialPosition == tmpBoardSquare.id) // if we have created a piece in this round, place it and add the corresponding listener
+						{
+							tmpPiece.addEventListener(MouseEvent.MOUSE_DOWN,mouseMoveHandler);
+							tmpBoardSquare.addChild(tmpPiece);
+						}
+					}
+				}
+
+			}
+			
+
+			// fonction gérant l'évènement correspondant à la sélection d'une pièce
+	        private function mouseMoveHandler(event:MouseEvent):void 
+		    {                
+                if (Piece(event.currentTarget).color != turn.charAt(0) || Piece(event.currentTarget).inGame == false && promotion == false)
+                	return;
+				else if (Piece(event.currentTarget).inGame == true && promotion == true) 
+					return;
+                var dragInitiator:Piece=Piece(event.currentTarget);                
+                var ds:DragSource = new DragSource();
+                ds.addData(dragInitiator, "Piece");               
+
+                DragManager.doDrag(dragInitiator, ds, event);    
+		    }
+
+			
+			// l'utilisateur a sélectionné une pièce et passe la souris sur des cases 
+	        private function dragEnterHandler(event:DragEvent):void 
+	        {
+	            var tmpBoardSquareTo:BoardSquare = event.currentTarget as BoardSquare;
+				var tmpPiece:Piece = event.dragInitiator as Piece;
+	            var moveTo:String = tmpBoardSquareTo.id;
+				var moveFrom:String = tmpPiece.position;
+				var result:Boolean = false;
+				
+				if (moveFrom == moveTo)
+				{
+					result = true;
+				}
+				else if (promotion == false && tmpPiece.canMove(gridBoard,tmpBoardSquareTo))
+				{
+					if (tmpBoardSquareTo.numChildren > 0) 
+					{
+						if (Piece(tmpBoardSquareTo.getChildAt(0)).color == tmpPiece.color) result = false;
+						else result = true;
+					}
+					 else result = true;
+				}
+				else if (promotion == true && tmpPiece.inGame == false && tmpBoardSquareTo.numChildren > 0)
+				{
+					var tmpTarget:Piece = Piece(tmpBoardSquareTo.getChildAt(0));
+					if (tmpTarget.pieceName == "pawn" && tmpTarget.color == turn.charAt(0))
+					{
+						result = true;
+					}
+				}
+				else result = false;
+
+				// rook ... besoin d'optimisation ...
+				if (tmpPiece.pieceName == "king" && tmpPiece.castleable == true && tmpPiece.check == false)
+				{
+					if (tmpPiece.color == "w" && moveFrom == "e1" && moveTo == "g1"
+								&& getBoardSquareAt("f1").numChildren == 0 && getBoardSquareAt("g1").numChildren == 0 
+								&& getPieceById("wrookh").castleable == true ) result = true;
+					else if (tmpPiece.color == "w" && moveFrom == "e1" && moveTo == "c1"
+								&& getBoardSquareAt("c1").numChildren == 0 && getBoardSquareAt("d1").numChildren == 0  && getBoardSquareAt("b1").numChildren == 0
+								&& getPieceById("wrooka").castleable == true ) result = true;
+					else if (tmpPiece.color == "b" && moveFrom == "e8" && moveTo == "g8"
+								&& getBoardSquareAt("f8").numChildren == 0 && getBoardSquareAt("g8").numChildren == 0 
+								&& getPieceById("brookh").castleable == true ) result = true;
+					else if (tmpPiece.color == "b" && moveFrom == "e8" && moveTo == "c8"
+								&& getBoardSquareAt("c8").numChildren == 0 && getBoardSquareAt("d8").numChildren == 0  && getBoardSquareAt("b8").numChildren == 0
+								&& getPieceById("brooka").castleable == true ) result = true;
+				}
+
+				// on accepte (ou pas) le déplacement
+		        if (result) {
+		        	DragManager.acceptDragDrop(BoardSquare(event.currentTarget));
+		        }
+	        }
+
+	        private function dragDropHandler(event:DragEvent):void 
+	        {
+        	    if (promotion == false)	// cas normal
+        	    {
+        	    	movePiece(event.dragInitiator as Piece, event.target as BoardSquare);
+        	   	}
+        	   	else	// cas d'une promotion 
+        	   	{
+					promotion = false;
+					var tmpHistory:String = BoardSquare(event.target).id ;
+					var tmpPieceTo:Piece = Piece(BoardSquare(event.target).getChildAt(0));
+					
+					tmpPieceTo.inGame = false;
+					tmpPieceTo.position = null;
+					BoardSquare(event.target).removeAllChildren();	// on retire le pion qui a la promotion
+					
+					Piece(event.dragInitiator).inGame = true;
+					Piece(event.dragInitiator).position = BoardSquare(event.target).id;
+					BoardSquare(event.target).addChild(Piece(event.dragInitiator));
+					tmpHistory += "="+Piece(event.dragInitiator).pieceCode;
+					
+					if (tmpPieceTo.color == "w")		// puis on met le pion dans le cimetierre
+					{
+						boxWhiteGraveyard.addChild(tmpPieceTo);
+					}
+					else
+					{
+						boxBlackGraveyard.addChild(tmpPieceTo);
+					}
+
+					// Vérification de la mise en échec du roi adverse
+					var partnerKing:Piece = Piece(getPieceById((turn == "white" ? "b" : "w")+"king"));
+					if ( partnerKing.isCheck(gridBoard) != null)
+					{
+						partnerKing.check = true;
+						partnerKing.showCheck(true);
+						partnerKing.checker.showCheck(true);
+						tmpHistory += "+";
+					}
+
+					addToHistory(tmpHistory);
+					switchTurn();
+        	   	}
+	        }
+			
+			
+			// déplacement d'une piece vers une boardsquare
+			private function movePiece(piece:Piece,square:BoardSquare,history:Boolean=true):void 
+			{
+				if (piece.position == square.id) {	// pas de mouvement
+					return;
+				}
+				
+				var tmpHistory:String = piece.pieceCode;	// retranscription du coup à ajouter à l'historique
+				switch (piece.pieceName)
+				{
+					case "pawn":
+						tmpHistory += piece.position.charAt(0);
+						break;
+					case "rook":
+					case "bishop":
+					case "knight":
+						tmpHistory += piece.position;
+						break;
+					default :
+						break;	
+				}
+				
+
+				// on rend la pièce invisible puis visible pour avoir l'effet fade lors du mouvement
+				piece.visible = false;
+				// si le mouvement a été autorisé et si il y a une pièce dans la case cible, c'est qu'elle est de la couleur adverse, le test étant fait dans dragEnterHandler 
+				if (square.numChildren > 0) {
+					var tmpPieceTo:Piece = Piece(square.getChildAt(0));
+					tmpPieceTo.inGame = false;
+					tmpPieceTo.position = null;
+					tmpHistory += "x";
+					if (tmpPieceTo.color == "w")
+					{
+						boxWhiteGraveyard.addChild(tmpPieceTo);
+					}
+					else
+					{
+						boxBlackGraveyard.addChild(tmpPieceTo);
+					}
+				}
+				
+
+				var squareFrom:BoardSquare = BoardSquare(piece.parent);
+				squareFrom.removeChildAt(0);
+				square.addChild(piece);
+				piece.endEffectsStarted(); // on arrête l'effet fadeout sinon on n'a pas le fadein et la pièce reste invisible (bug Flex ?)
+				piece.visible = true;				
+				
+				// ajout à l'historique de la partie
+				tmpHistory += square.id;
+
+				// Vérification de l'état de notre roi
+				var myKing:Piece = Piece(getPieceById((turn == "white" ? "w" : "b")+"king"));
+				if (myKing.isCheck(gridBoard) != null)
+				{
+					squareFrom.addChild(piece);
+					if (tmpPieceTo != null)
+					{
+						square.addChild(tmpPieceTo);
+						tmpPieceTo.position = square.id;
+						tmpPieceTo.inGame = true;
+					}
+					if (myKing.check == true)
+					{
+						Piece(myKing.checker).showCheck(true);
+						myKing.showCheck(true);	
+					}
+					else
+					{
+						Piece(myKing.checker).showCheck(false);
+						myKing.showCheck(false);	
+					}
+										
+					return;
+					
+				}
+				else
+				{
+					if (myKing.check == true)
+					{
+						myKing.check = false;
+						myKing.showCheck(false);
+						Piece(myKing.checker).showCheck(false);
+					}					
+				}
+				// fin check des rois
+
+				// Gestion du castling
+				// les tests de base ont été réalisés dans la fonction dragEnter, il reste à gérer la mise en échecs 
+				var kingRow:String = (piece.color=="w"?"1":"8");
+				if (piece.pieceName == "king" && piece.position == "e"+kingRow && square.id == "g"+kingRow)
+					{
+						if (getBoardSquareAt("h" + kingRow).isCheck(gridBoard,turn.charAt(0)) != null || getBoardSquareAt("g" + kingRow).isCheck(gridBoard,turn.charAt(0)) != null || getBoardSquareAt("f" + kingRow).isCheck(gridBoard,turn.charAt(0)) != null) // si la tour en h ou l'une des cases intermédiaires est en échecs, on annule le coup
+						{
+							squareFrom.addChild(piece);
+							return;
+						}
+						else
+						{
+							tmpHistory = "0-0";
+							movePiece(getPieceAt("h"+kingRow),getBoardSquareAt("f"+kingRow),false); // on déplace la tour
+						}
+					}
+				else if (piece.pieceName == "king" && piece.position == "e"+kingRow && square.id == "c"+kingRow)
+					{
+						if (getBoardSquareAt("a" + kingRow).isCheck(gridBoard,turn.charAt(0)) != null || getBoardSquareAt("c" + kingRow).isCheck(gridBoard,turn.charAt(0)) != null || getBoardSquareAt("d" + kingRow).isCheck(gridBoard,turn.charAt(0)) != null) // si la tour en h ou l'une des cases intermédiaires est en échecs, on annule le coup
+						{
+							squareFrom.addChild(piece);
+							return;
+						}
+						else
+						{
+							tmpHistory = "0-0-0";
+							movePiece(getPieceAt("a"+kingRow),getBoardSquareAt("d"+kingRow),false); // on déplace la tour
+						}
+					}
+				// fin gestion du castling
+
+				piece.position = square.id;
+
+				// Vérification de la mise en échec du roi adverse
+				var partnerKing:Piece = Piece(getPieceById((turn == "white" ? "b" : "w")+"king"));
+				if ( partnerKing.isCheck(gridBoard) != null)
+				{
+					partnerKing.check = true;
+					partnerKing.showCheck(true);
+					partnerKing.checker.showCheck(true);
+					tmpHistory += "+";
+				}
+
+				if (piece.pieceName == "king" || piece.pieceName == "rook")	// si le roi ou une tour bouge, il ou elle ne peut plus participer à un rook
+				{
+					piece.castleable = false;
+				}
+
+
+				// gestion de la promotion
+				if (piece.pieceName == "pawn" 
+					&& (piece.color == "w" && piece.position.charAt(1) == "8" 
+						|| piece.color == "b" && piece.position.charAt(1) == "1"))
+				{
+					promotion = true;
+					comments = turn + " picks a piece for promotion.";
+					return;
+				}				
+
+
+				if (history == true)
+				{
+					addToHistory(tmpHistory);
+					switchTurn();
+				}
+
+			}
+	
+			private function switchTurn():void
+			{
+				turn = (turn == "white" ? "black" : "white");
+				turnnumber++;
+				comments = (turn == playerColor ? "your turn" : turn + "'s turn");
+			}
+			
+			// fonction retournant l'objet Piece correspondant à un id 
+			private function getPieceById(id:String):Piece
+			{
+				for(var i:int = 0 ; i < 8 ; i++)
+				{
+					for (var j:int = 0 ; j < 8 ; j++)
+					{
+						if (BoardSquare(GridRow(gridBoard.getChildAt(i)).getChildAt(j)).numChildren > 0)
+						{
+							var tmpPiece:Piece = Piece(BoardSquare(GridRow(gridBoard.getChildAt(i)).getChildAt(j)).getChildAt(0));
+							if ( tmpPiece.id == id)
+							{
+								return tmpPiece;
+							}
+						}
+					}
+				}
+				return null;
+			}
+			
+			
+			// fonction retournant l'objet Piece se trouvant sur une case
+			private function getPieceAt(square:String):Piece
+			{
+				var tmpGridRow:GridRow = gridBoard.getChildByName(square.charAt(1)) as GridRow;
+				var tmpBoardSquare:BoardSquare = tmpGridRow.getChildByName(square) as BoardSquare;
+				return Piece(tmpBoardSquare.getChildAt(0));				
+			}
+
+			// fonction retournant l'objet BoardSquare se trouvant à une coordonnée passée en paramètre
+			private function getBoardSquareAt(square:String):BoardSquare
+			{
+				var tmpGridRow:GridRow = gridBoard.getChildByName(square.charAt(1)) as GridRow;
+				return(BoardSquare(tmpGridRow.getChildByName(square)));
+			}
+			
+			// déclenche les traitements liés à la mise en échec d'un roi par rapport à son id
+			private function cmdCheck(id:String):void
+			{
+				var tmpPiece:Piece = getPieceById(id);
+				tmpPiece.setStyle("resizeEffect","check");
+				tmpPiece.dispatchEvent(new Event("resize"));
+				tmpPiece.setStyle("resizeEffect",null);
+			}
+
+			// déclenche les traitements liés à la fin de mise en échec d'un roi par rapport à son id
+			private function cmdUnCheck(id:String):void
+			{
+				var tmpPiece:Piece = getPieceById(id);
+				tmpPiece.setStyle("resizeEffect","uncheck");
+				tmpPiece.dispatchEvent(new Event("resize"));
+				tmpPiece.setStyle("resizeEffect",null);
+			}
+
+			// fonction pour le déplacement d'une pièce à partir des noms des cases
+			// par exemple lorsqu'on reçoit le coup joué par le partenaire
+			private function makeMove(makeMoveFrom:String,makeMoveTo:String):void {
+				var tmpPiece:Piece = getPieceAt(makeMoveFrom);
+				var tmpBoardSquareTo:BoardSquare = getBoardSquareAt(makeMoveTo);
+				movePiece(tmpPiece,tmpBoardSquareTo);
+			}
+			
+			private function addToHistory(text:String):void
+			{
+				if (turn == "white") {
+					text += ";";
+				}
+				else {
+					text += "\n";
+				}
+				gameHistory.text += text;
+			}
+			
+		]]>
+	</mx:Script>
+
+
+	<mx:Glow id="check" duration="200" 
+	        alphaFrom="1.0" alphaTo="3.0" 
+	        blurXFrom="0.0" blurXTo="20.0" 
+	        blurYFrom="0.0" blurYTo="20.0" 
+	        color="0xff0000"/>
+	<mx:Glow id="uncheck" duration="200" 
+	        alphaFrom="3.0" alphaTo="0.0" 
+	        blurXFrom="20.0" blurXTo="0.0" 
+	        blurYFrom="20.0" blurYTo="0.0" 
+	        color="0xff0000"/>
+
+    <mx:Fade id="fadeOut" duration="100" alphaFrom="1.0" alphaTo="0.0"/>
+    <mx:Fade id="fadeIn" duration="300" alphaFrom="0.0" alphaTo="1.0"/>
+
+	<mx:Style source="css/main.css"/>
+	<mx:Image id="imgBoard" x="10" y="20" source="@Embed('images/_board.png')"/>
+	<mx:Grid id="gridBoard" x="32" y="40"
+    	horizontalGap="0"
+    	verticalGap="0" 
+    	textAlign="center" 
+    	horizontalAlign="center" 
+    	verticalAlign="middle">
+   	</mx:Grid>
+	<mx:TextArea editable="false" 
+		height="30" 
+		width="420" 
+		borderStyle="solid" 
+		id="txtComments"  text="{comments}" x="10" y="448" styleName="darktext"/>
+	<mx:Panel x="10" y="486" width="572" height="119" layout="absolute" title="Graveyard" id="panelGraveyard">
+		<mx:HBox x="0" y="0" width="552" id="boxWhiteGraveyard" height="40">
+		</mx:HBox>
+		<mx:HBox x="0" y="38" width="100%" id="boxBlackGraveyard" height="41">
+		</mx:HBox>
+	</mx:Panel>
+	<mx:Panel x="438" y="20" width="144" height="458" layout="absolute" title="History" id="panelHistory" alpha="1">
+		<mx:TextArea editable="false" 
+			height="418" 
+			width="124" 
+			borderStyle="solid" 
+			id="gameHistory"  x="0" y="0" styleName="darktext" alpha="1"/>
+	</mx:Panel>
+</mx:Application>

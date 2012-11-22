@@ -1,0 +1,23 @@
+/* CSS file */
+.darktext
+{
+	backgroundColor: #000000;
+	fontFamily: Tahoma;
+	fontSize: 12;
+	color: #FFFFFF;
+	paddingLeft: 5;
+	paddingRight: 5;
+	paddingTop: 5;
+	backgroundAlpha: 0.8;
+}
+
+.case
+{
+	verticalAlign: middle;
+	horizontalAlign: center;
+}
+.piece
+{
+	hideEffect: fadeOut;
+	showEffect: fadeIn;
+}
